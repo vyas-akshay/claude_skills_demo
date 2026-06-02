@@ -54,6 +54,14 @@ jobs:
           print("Payload written successfully")
           PYEOF
 
+      # ADD THIS STEP
+      - name: Debug Secret
+        run: |
+          echo "Length: ${#GEMINI_API_KEY}"
+          echo "Prefix: ${GEMINI_API_KEY:0:8}"
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
       - name: Call Gemini API
         id: call_gemini
         run: |
