@@ -22,12 +22,14 @@ def calculate(operation, a, b):
         return multiply(a, b)
     elif operation == "divide":
         return divide(a, b)
+    elif operation == "square":
+        return a ** 2
     else:
         print("Unknown operation")  # Bad: no return value
 
 # No input validation, no type hints, no docstrings
 a = float(input("Enter first number: "))
-op = input("Enter operation (add/subtract/multiply/divide): ")
+op = input("Enter operation (add/subtract/multiply/divide/square): ")
 b = float(input("Enter second number: "))
 
 result = calculate(op, a, b)

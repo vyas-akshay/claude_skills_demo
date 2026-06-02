@@ -32,7 +32,7 @@ jobs:
 
           # Read the diff
           with open("pr_diff.txt", "r") as f:
-              diff = f.read()[:3000]  # limit size
+              diff = f.read()[:1000]  # limit size
 
           prompt = f"""You are an expert Python code reviewer. Review this PR diff and provide specific, actionable feedback.
           Focus on: bugs, missing error handling, code quality, and best practices.
@@ -58,7 +58,7 @@ jobs:
         id: call_gemini
         run: |
           RESPONSE=$(curl -s \
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
             -H "Content-Type: application/json" \
             -d @prompt_payload.json)
 
