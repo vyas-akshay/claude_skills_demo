@@ -1,5 +1,17 @@
-def modulo(a, b):
-    return a % b   # Still missing zero check — Claude will catch this!
+# Simple Calculator
+# A basic command-line calculator
+
+def add(a, b):
+    return a + b
+
+def subtract(a, b):
+    return a - b
+
+def multiply(a, b):
+    return a * b
+
+def divide(a, b):
+    return a / b   # Bug: no zero division check
 
 def calculate(operation, a, b):
     if operation == "add":
@@ -10,15 +22,15 @@ def calculate(operation, a, b):
         return multiply(a, b)
     elif operation == "divide":
         return divide(a, b)
-    elif operation == "modulo":
-        return modulo(a, b)
+    elif operation == "square":
+        return a ** 2
     else:
-        print("Unknown operation")
+        print("Unknown operation")  # Bad: no return value
 
-while True:
-    a = float(input("Enter first number: "))
-    op = input("Operation: ")
-    b = float(input("Enter second number: "))
-    print("Result:", calculate(op, a, b))
-    if input("Continue? (y/n): ") != "y":
-        break
+# No input validation, no type hints, no docstrings
+a = float(input("Enter first number: "))
+op = input("Enter operation (add/subtract/multiply/divide/square): ")
+b = float(input("Enter second number: "))
+
+result = calculate(op, a, b)
+print("Result:", result)
