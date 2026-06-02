@@ -22,8 +22,6 @@ def calculate(operation, a, b):
         return multiply(a, b)
     elif operation == "divide":
         return divide(a, b)
-    elif operation == "square":
-        return a ** 2
     else:
         print("Unknown operation")  # Bad: no return value
 
