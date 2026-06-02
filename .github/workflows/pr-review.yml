@@ -20,38 +20,77 @@ jobs:
       - name: Get PR diff
         run: |
           git diff origin/${{ github.base_ref }}...HEAD > pr_diff.txt
+          echo "=== DIFF CONTENT ==="
+          cat pr_diff.txt
 
       - name: Gemini Code Review
         id: gemini_review
         run: |
-          DIFF=$(cat pr_diff.txt)
+          # Write the prompt to a file to avoid shell escaping issues
+          python3 - <<'PYEOF'
+          import json, subprocess, sys
 
+          # Read the diff
+          with open("pr_diff.txt", "r") as f:
+              diff = f.read()[:3000]  # limit size
+
+          prompt = f"""You are an expert Python code reviewer. Review this PR diff and provide specific, actionable feedback.
+          Focus on: bugs, missing error handling, code quality, and best practices.
+          Format your response as a clear GitHub PR comment with sections for **Issues Found** and **Suggestions**.
+
+          PR Diff:
+          {diff}
+          """
+
+          payload = {
+              "contents": [{
+                  "parts": [{"text": prompt}]
+              }]
+          }
+
+          with open("prompt_payload.json", "w") as f:
+              json.dump(payload, f)
+
+          print("Payload written successfully")
+          PYEOF
+
+      - name: Call Gemini API
+        id: call_gemini
+        run: |
           RESPONSE=$(curl -s \
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"contents\": [{
-                \"parts\": [{
-                  \"text\": \"You are an expert Python code reviewer. Review this PR diff and provide specific, actionable feedback. Focus on: bugs, missing error handling, code quality, and best practices. Format your response as a clear GitHub PR comment with sections for Issues Found and Suggestions.\n\nPR Diff:\n$(echo "$DIFF" | head -200 | sed 's/"/\\"/g' | sed 's/$/\\n/' | tr -d '\n')\"
-                }]
-              }]
-            }")
+            -d @prompt_payload.json)
 
+          echo "=== RAW RESPONSE ==="
+          echo "$RESPONSE"
+
+          # Parse safely
           REVIEW=$(echo "$RESPONSE" | python3 -c "
           import sys, json
           data = json.load(sys.stdin)
+
+          if 'error' in data:
+              print('Gemini API Error: ' + data['error'].get('message', 'Unknown error'))
+              sys.exit(1)
+
+          if 'candidates' not in data or not data['candidates']:
+              print('No candidates in response. Full response: ' + str(data))
+              sys.exit(1)
+
           print(data['candidates'][0]['content']['parts'][0]['text'])
           ")
 
-          echo "review<<EOF" >> $GITHUB_OUTPUT
-          echo "$REVIEW" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          # Save to file to avoid GitHub output size limits
+          echo "$REVIEW" > review_output.txt
+          echo "Review saved successfully"
 
       - name: Post review comment
         uses: actions/github-script@v7
         with:
           script: |
-            const review = `${{ steps.gemini_review.outputs.review }}`;
+            const fs = require('fs');
+            const review = fs.readFileSync('review_output.txt', 'utf8');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
