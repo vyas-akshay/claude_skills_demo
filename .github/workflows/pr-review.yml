@@ -1,0 +1,60 @@
+name: Gemini PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > pr_diff.txt
+
+      - name: Gemini Code Review
+        id: gemini_review
+        run: |
+          DIFF=$(cat pr_diff.txt)
+
+          RESPONSE=$(curl -s \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"contents\": [{
+                \"parts\": [{
+                  \"text\": \"You are an expert Python code reviewer. Review this PR diff and provide specific, actionable feedback. Focus on: bugs, missing error handling, code quality, and best practices. Format your response as a clear GitHub PR comment with sections for Issues Found and Suggestions.\n\nPR Diff:\n$(echo "$DIFF" | head -200 | sed 's/"/\\"/g' | sed 's/$/\\n/' | tr -d '\n')\"
+                }]
+              }]
+            }")
+
+          REVIEW=$(echo "$RESPONSE" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          print(data['candidates'][0]['content']['parts'][0]['text'])
+          ")
+
+          echo "review<<EOF" >> $GITHUB_OUTPUT
+          echo "$REVIEW" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post review comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const review = `${{ steps.gemini_review.outputs.review }}`;
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `## 🤖 Gemini AI Code Review\n\n${review}\n\n---\n*Automated review by Gemini via GitHub Actions*`
+            });
